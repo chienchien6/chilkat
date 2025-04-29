@@ -4,9 +4,8 @@ import (
 	"chilkat"
 	"errors"
 	"fmt"
-	"os" // Added for directory creation
-	"path/filepath"
-	"strings" // Added for error message parsing
+	"os"            // Added for directory creation
+	"path/filepath" // Added for error message parsing
 	"time"
 
 	"github.com/spf13/viper"
@@ -209,45 +208,34 @@ func findHsmHandles(pkcs11 *chilkat.Pkcs11) (privKeyHandle uint, certHandle uint
 }
 
 // --- Configure Signing Options ---
-func configureSigningOptions() (*chilkat.JsonObject, error) {
+func configureSigningOptions(pdf *chilkat.Pdf, cert *chilkat.Cert) (*chilkat.JsonObject, error) {
 	json := chilkat.NewJsonObject()
-
+	pdf.SetSigningCert(cert)
 	// Base configuration
-	json.UpdateString("subFilter", "/ETSI.CAdES.detached")
+	json.UpdateString("subFilter", "/ETSI.CAdES.detached") // Use this for PAdES base
 	json.UpdateBool("signingCertificateV2", true)
 	json.UpdateString("hashAlgorithm", "sha256")
 
-	// --- Critical B-LT Settings ---
-	// Force LTV explicitly with multiple flags
-	json.UpdateBool("ltvOcsp", true)
-	json.UpdateBool("ltvCrl", true) // Explicitly enable CRL for LTV
-	json.UpdateBool("embedOcspResponses", true)
-	json.UpdateBool("embedCrlResponses", true)
-	json.UpdateBool("includeCertChain", true) // Ensure cert chain is included
-
-	// Force DSS creation and updating
-	json.UpdateBool("addDss", true)           // Explicitly add DSS dictionary
-	json.UpdateBool("updateDss", true)        // Explicitly update DSS dictionary
-	json.UpdateBool("forceDssCreation", true) // Force DSS creation even if not needed
-
-	// Explicit PAdES B-LT compliance settings
-	json.UpdateString("pdfSubfilter", "ETSI.CAdES.detached")
-	json.UpdateBool("pAdESCompliant", true) // Force PAdES compliance
-	json.UpdateString("pAdESLevel", "B-LT") // Explicitly request B-LT level
-
-	// OCSP/CRL specific settings
+	// OCSP/CRL specific settings (Keep these as they control fetching)
 	json.UpdateBool("sendOcspNonce", true)
 	json.UpdateString("ocspDigestAlg", "sha256")
 	json.UpdateInt("ocspTimeoutMs", 30000)
 	json.UpdateInt("crlTimeoutMs", 30000)
-	json.UpdateBool("forceRevocationChecks", true)
+	// Removed: forceRevocationChecks, validateSignatures, validateChain, deepValidation
 
-	// Certificate validation settings
-	json.UpdateBool("validateSignatures", true)
-	json.UpdateBool("validateChain", true)
-	json.UpdateBool("deepValidation", true)
+	// --- Settings for Step 1 (SignPdf): Focus on Timestamp, maybe chain ---
+	// json.UpdateBool("ltvOcsp", true)            // Disabled for Step 1
+	// json.UpdateBool("ltvCrl", true)             // Disabled for Step 1
+	// json.UpdateBool("embedOcspResponses", true) // Disabled for Step 1
+	// json.UpdateBool("embedCrlResponses", true)  // Disabled for Step 1
+	json.UpdateBool("includeCertChain", true) // Keep this, may help AddVerificationInfo later
+	// 添加證書鏈驗證
+	json.UpdateBool("validateChain", false) // Keep false during debugging
 
-	// TSA settings
+	// 強制更新DSS(文件安全儲存)
+	// json.UpdateBool("updateDss", true)         // Disabled for Step 1, AddVerificationInfo handles DSS
+
+	// TSA settings (Keep these for B-T level)
 	json.UpdateInt("signingTime", 1)
 	json.UpdateBool("timestampToken.enabled", true)
 	json.UpdateString("timestampToken.tsaUrl", "http://timestamp.digicert.com")
@@ -261,9 +249,11 @@ func configureSigningOptions() (*chilkat.JsonObject, error) {
 	json.UpdateString("appearance.fontScale", "10.0")
 	json.UpdateString("appearance.text[0]", "Digitally signed by: cert_cn")
 	json.UpdateString("appearance.text[1]", "current_dt")
-	json.UpdateString("appearance.text[2]", "PAdES B-LT Signature")
+	json.UpdateString("appearance.text[2]", "PAdES Signature (Attempting B-LT)") // Adjust text
 
-	fmt.Println("Configured enhanced B-LT settings with DSS and explicit PAdES level")
+	// Removed: addDss, updateDss, forceDssCreation, pdfSubfilter, pAdESCompliant, pAdESLevel
+
+	fmt.Println("Configured simplified core settings for B-LT level")
 	return json, nil
 }
 
@@ -321,13 +311,9 @@ func performPdfSigning(pdf *chilkat.Pdf, cert *chilkat.Cert, jsonOptions *chilka
 
 	fmt.Println("PKCS11 signing certificate configured successfully on PDF object.")
 
-	// Add chain certificates if needed (get from HSM or load from files)
-	// This helps with LTV validation
-	// Example: pdf.AddChainCert(intermediateCert)
-
-	// Sign the PDF with enhanced debugging
-	fmt.Println("--- Beginning PDF Signing with LTV (B-LT) --- (Verbose logs follow)")
-	fmt.Printf("Attempting to sign PDF and save to: %s\n", outputPath)
+	// --- Step 1: Sign the PDF (aiming for B-T initially) and SAVE ---
+	fmt.Println("--- Beginning PDF Signing (Step 1: Base Signature + Timestamp) ---")
+	fmt.Printf("Attempting to sign PDF and save B-T stage to: %s\n", outputPath)
 
 	// Create output directory if it doesn't exist
 	outputDir := filepath.Dir(outputPath)
@@ -335,34 +321,59 @@ func performPdfSigning(pdf *chilkat.Pdf, cert *chilkat.Cert, jsonOptions *chilka
 		return fmt.Errorf("failed to create output directory: %s", err)
 	}
 
-	success = pdf.SignPdf(jsonOptions, outputPath)
+	// Clear LastErrorText before SignPdf
+	pdf.LastErrorText()
+	successSign := pdf.SignPdf(jsonOptions, outputPath)
+	errMsgSign := pdf.LastErrorText() // Capture error text immediately
 
-	// Capture and print detailed error information
-	errMsg := pdf.LastErrorText()
-	if errMsg != "" {
-		fmt.Println("--- Verbose LastErrorText after SignPdf attempt: ---")
-		fmt.Println(errMsg)
-		fmt.Println("--- End of Verbose LastErrorText ---")
-
-		// Look for specific OCSP/CRL related errors
-		if strings.Contains(errMsg, "OCSP") || strings.Contains(errMsg, "CRL") {
-			fmt.Println("WARNING: Detected OCSP or CRL issue in the error text")
-
-			// Check if the signature was created anyway
-			if success {
-				fmt.Println("NOTE: Despite OCSP/CRL warnings, the PDF was signed.")
-				fmt.Println("     Verify if the signature has proper LTV (B-LT) level.")
-			}
-		}
-	} else {
-		fmt.Println("SignPdf attempt completed, LastErrorText is empty.")
+	if errMsgSign != "" {
+		fmt.Println("--- Verbose LastErrorText after SignPdf attempt (Step 1): ---")
+		fmt.Println(errMsgSign)
+		fmt.Println("--- End of Verbose LastErrorText (Step 1) ---")
 	}
 
-	if !success {
-		return fmt.Errorf("failed to sign PDF (see verbose log above)")
+	if !successSign {
+		return fmt.Errorf("failed to sign PDF (Step 1: SignPdf): %s", errMsgSign)
+	}
+	fmt.Println("PDF signed successfully (Step 1: Base Signature + Timestamp) and saved.")
+
+	// --- IMPORTANT: Dispose the first pdf object before loading the signed file ---
+	// This ensures we work with the file state, not potentially inconsistent memory state.
+	pdf.DisposePdf()
+
+	// --- Step 2: Load the signed (B-T) PDF and Add LTV Info / Fill DSS ---
+	fmt.Println("--- Beginning LTV Addition (Step 2: Load B-T and AddVerificationInfo) ---")
+	pdfLtv := chilkat.NewPdf()     // Create a NEW Pdf object
+	defer pdfLtv.DisposePdf()      // Ensure this new object is disposed
+	pdfLtv.SetVerboseLogging(true) // Enable logging for the new object too
+
+	fmt.Printf("Loading signed PDF from: %s\n", outputPath)
+	if !pdfLtv.LoadFile(outputPath) {
+		return fmt.Errorf("failed to load signed PDF (Step 2: LoadFile): %s", pdfLtv.LastErrorText())
 	}
 
-	fmt.Println("PDF signed successfully with LTV (B-LT) level!")
+	emptyJson := chilkat.NewJsonObject()
+	defer emptyJson.DisposeJsonObject() // Ensure empty JSON object is disposed
+	// REMOVED: emptyJson.UpdateBool("ltvOcsp", true) // AddVerificationInfo expects an EMPTY json
+
+	// Clear LastErrorText before AddVerificationInfo
+	pdfLtv.LastErrorText()
+	fmt.Println("Calling AddVerificationInfo...")
+	successAddVI := pdfLtv.AddVerificationInfo(emptyJson, outputPath) // Use the loaded object
+	errMsgAddVI := pdfLtv.LastErrorText()                             // Capture error text immediately
+
+	if errMsgAddVI != "" {
+		fmt.Println("--- Verbose LastErrorText after AddVerificationInfo attempt (Step 2): ---")
+		fmt.Println(errMsgAddVI)
+		fmt.Println("--- End of Verbose LastErrorText (Step 2) ---")
+	}
+
+	if !successAddVI {
+		return fmt.Errorf("failed to add LTV verification info (Step 2: AddVerificationInfo): %s", errMsgAddVI)
+	}
+
+	fmt.Println("Successfully added LTV info and updated DSS (Step 2: AddVerificationInfo). PDF should be B-LT.")
+
 	return nil
 }
 
@@ -465,9 +476,10 @@ func main() {
 			// Decide if this is fatal
 			// return
 		}
+		pdf.SetSigningCert(cert)
 
 		// 8. Configure Signing Options (JSON) (Moved down)
-		jsonOptions, err := configureSigningOptions()
+		jsonOptions, err := configureSigningOptions(pdf, cert)
 		if err != nil {
 			fmt.Println("Error configuring signing options:", err)
 			// Cleanup handled by defers
