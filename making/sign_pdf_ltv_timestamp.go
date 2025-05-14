@@ -27,7 +27,7 @@ func main() {
 
 	// 存取設定值
 	pdfInputPath := viper.GetString("pdf_input_path")
-	pfxPath := viper.GetString("pfx_path")
+	pfxPath := viper.GetString("pfx_file_path")
 	pfxPassword := viper.GetString("pfx_password")
 	// 注意：config.json 目前沒有專門的 LTV+Timestamp 輸出路徑
 	// 建議在 config.json 中新增一個例如 "ltv_timestamp_pdf_output_path" 的欄位
@@ -97,6 +97,7 @@ func main() {
 	json.UpdateString("appearance.text[0]", "Digitally signed by: cert_cn")
 	json.UpdateString("appearance.text[1]", "current_dt")
 	json.UpdateString("appearance.text[2]", "This is an LTV-enabled signature with a TSA timestamp.") // 更新顯示文字
+	json.UpdateString("contactInfo", "0927556282")                                                    // 更新顯示文字
 
 	// Load the signing certificate (使用設定檔中的路徑和密碼)
 	cert := chilkat.NewCert()

@@ -1,0 +1,17 @@
+{
+    "pdf_input_path": "C:/chilkatPackage/chilkattest/example2/data/ruiting.pdf",
+    "pfx_file_path":"C:/chilkatPackage/chilkattest/myPdfSigningCert.pfx",
+    "pfx_path": "C:/chilkatPackage/chilkattest/AATL20250123384833.pfx",
+    "pfx_password": "secret",
+    "pdf_output_path": "C:/chilkatPackage/chilkattest/PDFsignature/output/hello_signed.pdf",
+    "image_pdf_output_path": "C:/chilkatPackage/chilkattest/making/output/image_signed.pdf",
+    "jpg_image_path": "C:/chilkatPackage/chilkattest/making/image/art.jpg",
+    "pdf_input_path_unsigned":  "C:/chilkatPackage/chilkattest/example2/data/ruiting.pdf", 
+    "unsigned_pdf_output_path": "C:/chilkatPackage/chilkattest/making/output/unsigned_field_signed.pdf",
+    "unsigned_field_name": "",
+    "pkcs11_lib_path": "C:/OpenAPI GatewayRT/Go/lib/V4.55.0.0/Windows/x86-64/cs_pkcs11_R3.dll", 
+    "hsm_pin": "12345678",
+    "unsigned_pdf_input_path": "C:/chilkatPackage/chilkattest/p11/Root/hello.pdf",
+    "signed_hsm_pdf_output_path": "C:/chilkatPackage/chilkattest/p11/output/test",
+    "p11_token-label":"CryptoServer PKCS11 Token"
+}

@@ -237,11 +237,11 @@ func configureSigningOptions() (*chilkat.JsonObject, error) {
 	json.UpdateBool("signingCertificateV2", true)
 
 	json.UpdateInt("signingTime", 1)
-	json.UpdateString("signingAlgorithm", "pkcs") // 通常不需要特別指定，Chilkat 會自動處理
+	json.UpdateString("signingAlgorithm", "pkcs")
 	json.UpdateString("hashAlgorithm", "sha256")
 
-	// // --- 加入 TSA 時間戳記設定 ---
-	// // Tell Chilkat to request a timestamp from a TSA server
+	// // --- TEMPORARILY DISABLE TSA ---
+
 	json.UpdateBool("timestampToken.enabled", true)
 
 	// // 指定 TSA 伺服器 URL (這裡使用免費的 DigiCert TSA，您可以替換成您自己的)
@@ -255,10 +255,12 @@ func configureSigningOptions() (*chilkat.JsonObject, error) {
 	// 要求 TSA 伺服器在其回應中包含其憑證
 	// 這有助於 LTV 驗證過程也能包含時間戳記伺服器的憑證狀態
 	json.UpdateBool("timestampToken.requestTsaCert", true)
+
 	// --- TSA 時間戳記設定結束 ---
 
 	// -----------------------------------------------------------
-	// 設定簽章外觀
+	// --- TEMPORARILY DISABLE VISUAL APPEARANCE ---
+
 	json.UpdateInt("page", 1)
 	json.UpdateString("appearance.y", "top")
 	json.UpdateString("appearance.x", "left")
@@ -267,7 +269,7 @@ func configureSigningOptions() (*chilkat.JsonObject, error) {
 	json.UpdateString("appearance.text[1]", "current_dt")
 	json.UpdateString("appearance.text[2]", "PAdES B-Level Signature") // 更新顯示文字
 
-	fmt.Println("Signing options configured.")
+	fmt.Println("Signing options configured (SIMPLIFIED FOR TESTING).")
 	return json, nil
 }
 

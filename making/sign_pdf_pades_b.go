@@ -75,9 +75,9 @@ func main() {
 	// ---------------------------------------------------------------------
 	json.UpdateString("subFilter", "/ETSI.CAdES.detached")
 	json.UpdateBool("signingCertificateV2", true)
-	// json.UpdateString("signingAlgorithm", "pkcs") // 通常不需要特別指定，Chilkat 會自動處理
+	json.UpdateString("signingAlgorithm", "pkcs")
 	json.UpdateString("hashAlgorithm", "sha256")
-	json.UpdateInt("signingTime", 1) // 加入簽署時間
+	// json.UpdateInt("signingTime", 1) // 加入簽署時間
 
 	// -----------------------------------------------------------
 	// 設定簽章外觀

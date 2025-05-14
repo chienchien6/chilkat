@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "chilkattest",
+			"path": "."
+		},
+		{
+			"name": "signature_api",
+			"path": "../../Users/admin/AppData/Local/Programs/cursor/signature_api"
+		}
+	],
+	"settings": {}
+}

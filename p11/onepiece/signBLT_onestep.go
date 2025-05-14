@@ -127,33 +127,75 @@ func configureSigningOptionsOneStep(pdf *chilkat.Pdf, cert *chilkat.Cert) (*chil
 	json := chilkat.NewJsonObject()
 	pdf.SetSigningCert(cert) // Set cert early
 
-	// Base configuration
+	// // Base configuration
+	// json.UpdateString("subFilter", "/ETSI.CAdES.detached")
+	// json.UpdateBool("signingCertificateV2", true)
+	// json.UpdateString("hashAlgorithm", "sha256")
+
+	// // OCSP/CRL specific settings
+	// json.UpdateBool("sendOcspNonce", true)
+	// json.UpdateString("ocspDigestAlg", "sha256")
+	// json.UpdateInt("ocspTimeoutMs", 30000)
+	// json.UpdateInt("crlTimeoutMs", 30000)
+
+	// // --- LTV / DSS Core Settings for One-Step Attempt ---
+	// json.UpdateBool("ltvOcsp", true)            // Enable LTV via OCSP
+	// json.UpdateBool("ltvCrl", true)             // Enable LTV via CRL (Try enabling both)
+	// json.UpdateBool("embedOcspResponses", true) // Embed OCSP responses found
+	// json.UpdateBool("embedCrlResponses", true)  // Embed CRL responses found
+	// json.UpdateBool("includeCertChain", true)   // Ensure cert chain is included for validation
+	// json.UpdateBool("validateChain", false)     // Keep false for initial debugging
+	// json.UpdateBool("updateDss", true)          // Request DSS update/creation
+
+	// // TSA settings (Required for B-T and above)
+	// json.UpdateInt("signingTime", 1)
+	// json.UpdateBool("timestampToken.enabled", true)
+	// json.UpdateString("timestampToken.tsaUrl", "http://timestamp.digicert.com") // Replace with your TSA
+	// json.UpdateBool("timestampToken.requestTsaCert", true)
+	// json.UpdateInt("timestampToken.timeoutMs", 30000)
+
+	// 基本配置
 	json.UpdateString("subFilter", "/ETSI.CAdES.detached")
 	json.UpdateBool("signingCertificateV2", true)
 	json.UpdateString("hashAlgorithm", "sha256")
 
-	// OCSP/CRL specific settings
+	// LTV 相關設置 - 全部啟用
+	json.UpdateBool("ltvOcsp", true)
+	json.UpdateBool("ltvCrl", true)
+	json.UpdateBool("embedOcspResponses", true)
+	json.UpdateBool("embedCrlResponses", true)
+	json.UpdateBool("includeCertChain", true)
+
+	// 明確強制 DSS 更新
+	json.UpdateBool("updateDss", true)
+	json.UpdateBool("forceDssCreation", true)
+
+	// 明確設置為 PAdES 兼容並指定級別
+	json.UpdateBool("pAdESCompliant", true)
+	json.UpdateString("pAdESLevel", "B-LT")
+
+	// 時間戳配置
+	json.UpdateInt("signingTime", 1)
+	json.UpdateBool("timestampToken.enabled", true)
+	json.UpdateString("timestampToken.tsaUrl", "http://timestamp.digicert.com")
+	json.UpdateBool("timestampToken.requestTsaCert", true)
+	json.UpdateInt("timestampToken.timeoutMs", 30000)
+
+	// OCSP/CRL 高級設置
 	json.UpdateBool("sendOcspNonce", true)
 	json.UpdateString("ocspDigestAlg", "sha256")
 	json.UpdateInt("ocspTimeoutMs", 30000)
 	json.UpdateInt("crlTimeoutMs", 30000)
+	json.UpdateBool("forceRevocationChecks", true)
 
-	// --- LTV / DSS Core Settings for One-Step Attempt ---
-	json.UpdateBool("ltvOcsp", true)            // Enable LTV via OCSP
-	json.UpdateBool("ltvCrl", true)             // Enable LTV via CRL (Try enabling both)
-	json.UpdateBool("embedOcspResponses", true) // Embed OCSP responses found
-	json.UpdateBool("embedCrlResponses", true)  // Embed CRL responses found
-	json.UpdateBool("includeCertChain", true)   // Ensure cert chain is included for validation
-	json.UpdateBool("validateChain", false)     // Keep false for initial debugging
-	json.UpdateBool("updateDss", true)          // Request DSS update/creation
-
-	// TSA settings (Required for B-T and above)
-	json.UpdateInt("signingTime", 1)
-	json.UpdateBool("timestampToken.enabled", true)
-	json.UpdateString("timestampToken.tsaUrl", "http://timestamp.digicert.com") // Replace with your TSA
-	json.UpdateBool("timestampToken.requestTsaCert", true)
-	json.UpdateInt("timestampToken.timeoutMs", 30000)
-
+	// 外觀設置
+	json.UpdateInt("page", 1)
+	json.UpdateString("appearance.y", "top")
+	json.UpdateString("appearance.x", "left")
+	json.UpdateString("appearance.fontScale", "10.0")
+	json.UpdateString("appearance.text[0]", "數位簽章由: cert_cn")
+	json.UpdateString("appearance.text[1]", "current_dt")
+	json.UpdateString("appearance.text[2]", "PAdES B-LT 簽章")
 	// --- Manually add Intermediate CA Certificate to JSON options ---
 	// (Copied logic from previous attempt)
 	intermediateCert := chilkat.NewCert()
@@ -237,11 +279,11 @@ func loadPdfDocument(filePath string) (*chilkat.Pdf, error) {
 }
 
 // --- PDF Signing Function for ONE-STEP Attempt ---
-func performSigningOneStep(pdf *chilkat.Pdf, cert *chilkat.Cert, jsonOptions *chilkat.JsonObject, outputPath string) error {
+func performSigningOneStep(pdf *chilkat.Pdf, cert *chilkat.Cert, json *chilkat.JsonObject, outputPath string) error {
 	if outputPath == "" {
 		return errors.New("signed PDF output path is empty")
 	}
-	if pdf == nil || cert == nil || jsonOptions == nil {
+	if pdf == nil || cert == nil || json == nil {
 		return errors.New("invalid parameters for PDF signing (nil PDF, Cert, or JSON)")
 	}
 
@@ -258,7 +300,7 @@ func performSigningOneStep(pdf *chilkat.Pdf, cert *chilkat.Cert, jsonOptions *ch
 
 	// Clear LastErrorText before SignPdf
 	pdf.LastErrorText()
-	success := pdf.SignPdf(jsonOptions, outputPath)
+	success := pdf.SignPdf(json, outputPath)
 	errMsg := pdf.LastErrorText() // Capture error text immediately
 
 	if errMsg != "" {
@@ -377,18 +419,18 @@ func main() {
 
 		// No need to call pdf.SetSigningCert here, configureSigningOptionsOneStep handles it
 
-		jsonOptions, err := configureSigningOptionsOneStep(pdf, cert)
+		json, err := configureSigningOptionsOneStep(pdf, cert)
 		if err != nil {
 			fmt.Println("Error configuring signing options:", err)
 			return
 		}
 		// Defer disposal within the loop iteration
-		defer jsonOptions.DisposeJsonObject()
+		defer json.DisposeJsonObject()
 
 		outputFilename := fmt.Sprintf("%s_%d.pdf", baseOutputFilename, i)
 		iterationOutputPath := filepath.Join(onepieceOutputDir, outputFilename)
 
-		err = performSigningOneStep(pdf, cert, jsonOptions, iterationOutputPath)
+		err = performSigningOneStep(pdf, cert, json, iterationOutputPath)
 		if err != nil {
 			fmt.Printf("Error during one-step signing iteration %d: %v\n", i, err)
 			// break // Stop loop on first error

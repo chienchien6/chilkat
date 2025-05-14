@@ -99,16 +99,17 @@ func main() {
 	// -----------------------------------------------------------------------------------
 	// You can add the following to UncommonOptions to get detailed information about the CRL and OCSP requests
 	// You shouldn't set the following logging options unless there is a need, because it adds a large amount of information to the LastErrorText.
-	// pdf.SetUncommonOptions("LOG_OCSP_HTTP,LOG_CRL_HTTP")
+	pdf.SetUncommonOptions("LOG_OCSP_HTTP,LOG_CRL_HTTP")
 
 	// Define the appearance of the signature.
 	json.UpdateInt("page", 1)
-	json.UpdateString("appearance.y", "top")
-	json.UpdateString("appearance.x", "left")
+	json.UpdateString("appearance.y", "bottom")
+	json.UpdateString("appearance.x", "right")
 	json.UpdateString("appearance.fontScale", "10.0")
 	json.UpdateString("appearance.text[0]", "Digitally signed by: cert_cn")
 	json.UpdateString("appearance.text[1]", "current_dt")
 	json.UpdateString("appearance.text[2]", "This is an LTV-enabled signature.")
+	// json.UpdateString("contactInfo", "Signer: John Doe\nEmail: john.doe@example.com\nPhone: +123456789")
 
 	// Load the signing certificate. (使用設定檔中的路徑和密碼)
 	cert := chilkat.NewCert()

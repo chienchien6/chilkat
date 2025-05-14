@@ -27,7 +27,7 @@ func main() {
 
 	// 存取設定值
 	// *** 重要: 請確保此路徑指向您想要驗證的 PDF 檔案 ***
-	pdfToVerifyPath := viper.GetString("image_pdf_output_path") // 讀取要驗證的 PDF 路徑 (請根據需要修改此鍵名)
+	pdfToVerifyPath := viper.GetString("signed_hsm_pdf_output_path") // 讀取要驗證的 PDF 路徑 (請根據需要修改此鍵名)
 
 	// 基本驗證
 	if pdfToVerifyPath == "" {
